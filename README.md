@@ -4,4 +4,6 @@ This project implements a client-server model over a TCP connection by providing
 
 ## How to run
 
-`go run .` will run a demo example exchange of messages.
+`go run ./cmd/server` will run a server ready to accept connections.
+
+`go run ./cmd/client` will run an interactive session with client.
