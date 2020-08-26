@@ -2,6 +2,7 @@ package mmtp
 
 import (
 	"bufio"
+	"io"
 	"log"
 	"net"
 	"time"
@@ -55,6 +56,9 @@ func (srv *Server) Handle(conn net.Conn) {
 	for {
 		msg, _, err := ReadMessage(br)
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			log.Printf("ERROR: parsing message from %v: %v", conn.RemoteAddr(), err)
 			continue
 		}
