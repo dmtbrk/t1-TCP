@@ -37,11 +37,12 @@ func (srv *Server) ListenAndServe() error {
 }
 
 func (srv *Server) Serve() error {
-	defer srv.Shutdown()
-
 	for !srv.inShutdown { // http uses atomicBool
 		conn, err := srv.listener.Accept()
 		if err != nil {
+			if srv.inShutdown {
+				break
+			}
 			log.Println("ERROR: accepting connection:", err)
 			continue
 		}
