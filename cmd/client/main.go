@@ -29,7 +29,7 @@ func main() {
 		fmt.Println("===========================================")
 		fmt.Println("Enter a number representing a message type:")
 		fmt.Println("101 - Request Product List")
-		fmt.Println("102 - Add Product")
+		fmt.Println("104 - Add Product")
 
 		fmt.Print("Message type: ")
 		typ := readInt()
