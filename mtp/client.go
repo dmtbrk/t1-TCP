@@ -26,9 +26,9 @@ func (c *Client) Close() error {
 }
 
 // SendMessage sends a message to the connection.
-func (c *Client) SendMessage(msg *Message) {
+func (c *Client) SendMessage(msg *Message) error {
 	mw := NewMessageWriter(c.conn)
-	mw.WriteMessage(msg)
+	return mw.WriteMessage(msg)
 }
 
 // ReceiveMessage reads the next message from the connection.
