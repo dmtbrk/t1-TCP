@@ -68,9 +68,10 @@ func (srv *Server) Handle(conn net.Conn) {
 		msg, err := ReadMessage(br)
 		if err != nil {
 			if err == io.EOF {
-				if errors.Is(err, os.ErrDeadlineExceeded) {
-					log.Printf("INFO: deadline exceeded: %v", conn.RemoteAddr())
-				}
+				break
+			}
+			if errors.Is(err, os.ErrDeadlineExceeded) {
+				log.Printf("INFO: deadline exceeded: %v", conn.RemoteAddr())
 				break
 			}
 			log.Printf("ERROR: parsing message from %v: %v", conn.RemoteAddr(), err)
