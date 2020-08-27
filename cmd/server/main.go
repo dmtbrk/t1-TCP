@@ -35,50 +35,67 @@ func handler(mw *mtp.MessageWriter, msg *mtp.Message) {
 
 	switch msg.Type {
 	case MessageProductAdd:
-		// processing request
-		product, err := market.ParseProduct(msg.Payload)
-		if err != nil {
-			writeError(mw, err)
-			break
-		}
-		// doing logic
-		product, err = mrkt.AddProduct(product)
-		if err != nil {
-			writeError(mw, err)
-			break
-		}
-		// preparing response
-		pld, err := json.Marshal(product)
-		if err != nil {
-			writeError(mw, err)
-			break
-		}
-		res := &mtp.Message{
-			Type:    MessageProduct,
-			Payload: string(pld),
-		}
-		mw.WriteMessage(res)
+		handleProductAdd(mw, msg)
 
 	case MessageProductListRequest:
-		// doing logic
-		products, err := mrkt.Products()
-		if err != nil {
-			writeError(mw, err)
-			break
-		}
-
-		// preparing response
-		pld, err := json.Marshal(products)
-		if err != nil {
-			writeError(mw, err)
-			break
-		}
-		res := &mtp.Message{
-			Type:    MessageProduct,
-			Payload: string(pld),
-		}
-		mw.WriteMessage(res)
+		handleProductListRequest(mw, msg)
 	}
+}
+
+func handleProductAdd(mw *mtp.MessageWriter, msg *mtp.Message) {
+	// processing request
+	product, err := market.ParseProduct(msg.Payload)
+	if err != nil {
+		writeError(mw, err)
+		return
+	}
+	// doing logic
+	product, err = mrkt.AddProduct(product)
+	if err != nil {
+		writeError(mw, err)
+		return
+	}
+	// preparing response
+	pld, err := json.Marshal(product)
+	if err != nil {
+		writeError(mw, err)
+		return
+	}
+	res := &mtp.Message{
+		Type:    MessageProduct,
+		Payload: string(pld),
+	}
+	mw.WriteMessage(res)
+}
+
+func handleProductListRequest(mw *mtp.MessageWriter, msg *mtp.Message) {
+	// doing logic
+	products, err := mrkt.Products()
+	if err != nil {
+		writeError(mw, err)
+		return
+	}
+
+	// preparing response
+	pld, err := json.Marshal(products)
+	if err != nil {
+		writeError(mw, err)
+		return
+	}
+	res := &mtp.Message{
+		Type:    MessageProduct,
+		Payload: string(pld),
+	}
+	mw.WriteMessage(res)
+}
+
+func writeError(mw *mtp.MessageWriter, err error) {
+	log.Println("ERROR:", err)
+	res := &mtp.Message{
+		Type:    MessageError,
+		Payload: err.Error(),
+	}
+	mw.WriteMessage(res)
 }
 
 func main() {
@@ -102,13 +119,4 @@ func main() {
 	<-done
 	srv.Shutdown()
 	log.Println("Server stopped.")
-}
-
-func writeError(mw *mtp.MessageWriter, err error) {
-	log.Println("ERROR:", err)
-	res := &mtp.Message{
-		Type:    MessageError,
-		Payload: err.Error(),
-	}
-	mw.WriteMessage(res)
 }
