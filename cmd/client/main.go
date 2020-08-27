@@ -17,7 +17,7 @@ const (
 	MessageProductListRequest int = 101
 	MessageProduct            int = 102
 	MessageProductList        int = 103
-	MessageProductAdd         int = 102
+	MessageProductAdd         int = 104
 )
 
 func main() {
