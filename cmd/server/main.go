@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 	"os/signal"
@@ -9,7 +10,17 @@ import (
 
 	"github.com/ortymid/t1-tcp/market"
 	"github.com/ortymid/t1-tcp/market/mem"
-	"github.com/ortymid/t1-tcp/mmtp"
+	"github.com/ortymid/t1-tcp/mtp"
+)
+
+const (
+	MessageInvalid            int = 0
+	MessageError              int = 1
+	MessageProductRequest     int = 100
+	MessageProductListRequest int = 101
+	MessageProduct            int = 102
+	MessageProductList        int = 103
+	MessageProductAdd         int = 102
 )
 
 var mrkt *market.Market
@@ -19,47 +30,62 @@ func init() {
 	mrkt = market.New(productService)
 }
 
-func handler(mw *mmtp.MessageWriter, msg *mmtp.Message) {
+func handler(mw *mtp.MessageWriter, msg *mtp.Message) {
 	log.Println("INFO: server received:", msg)
 
 	switch msg.Type {
-	case mmtp.MessageProductAdd:
-		// doing business
-		product, err := mrkt.AddProduct(msg.Payload.(*market.Product))
-
-		// writing the response
+	case MessageProductAdd:
+		// processing request
+		product, err := market.ParseProduct(msg.Payload)
 		if err != nil {
 			writeError(mw, err)
 			break
 		}
-		res := &mmtp.Message{
-			Type:    mmtp.MessageProduct,
-			Payload: product,
+		// doing logic
+		product, err = mrkt.AddProduct(product)
+		if err != nil {
+			writeError(mw, err)
+			break
+		}
+		// preparing response
+		pld, err := json.Marshal(product)
+		if err != nil {
+			writeError(mw, err)
+			break
+		}
+		res := &mtp.Message{
+			Type:    MessageProduct,
+			Payload: string(pld),
 		}
 		mw.WriteMessage(res)
 
-	case mmtp.MessageProductListRequest:
-		// doing business
+	case MessageProductListRequest:
+		// doing logic
 		products, err := mrkt.Products()
-
-		// writing the response
 		if err != nil {
 			writeError(mw, err)
 			break
 		}
-		res := &mmtp.Message{
-			Type:    mmtp.MessageProductList,
-			Payload: products,
+
+		// preparing response
+		pld, err := json.Marshal(products)
+		if err != nil {
+			writeError(mw, err)
+			break
+		}
+		res := &mtp.Message{
+			Type:    MessageProduct,
+			Payload: string(pld),
 		}
 		mw.WriteMessage(res)
 	}
 }
 
 func main() {
-	srv := &mmtp.Server{
+	srv := &mtp.Server{
 		Addr:        ":8080",
-		IdleTimeout: 5 * time.Second,
-		Handler:     mmtp.HandlerFunc(handler),
+		IdleTimeout: 30 * time.Second,
+		Handler:     mtp.HandlerFunc(handler),
 	}
 
 	done := make(chan os.Signal, 1)
@@ -78,11 +104,11 @@ func main() {
 	log.Println("Server stopped.")
 }
 
-func writeError(mw *mmtp.MessageWriter, err error) {
+func writeError(mw *mtp.MessageWriter, err error) {
 	log.Println("ERROR:", err)
-	res := &mmtp.Message{
-		Type:    mmtp.MessageError,
-		Payload: err,
+	res := &mtp.Message{
+		Type:    MessageError,
+		Payload: err.Error(),
 	}
 	mw.WriteMessage(res)
 }

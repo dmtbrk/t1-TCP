@@ -1,6 +1,9 @@
 package market
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type ProductService interface {
 	Products() ([]*Product, error)
@@ -8,11 +11,17 @@ type ProductService interface {
 }
 
 type Product struct {
-	ID    int
-	Name  string
-	Price int
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Price int    `json:"price"`
 }
 
 func (p *Product) String() string {
 	return fmt.Sprintf("Product{ ID: %d, Name: %s, Price: %d }", p.ID, p.Name, p.Price)
+}
+
+func ParseProduct(s string) (*Product, error) {
+	p := &Product{}
+	err := json.Unmarshal([]byte(s), p)
+	return p, err
 }
