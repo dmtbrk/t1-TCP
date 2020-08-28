@@ -23,6 +23,8 @@ const (
 	MessageProductAdd         int = 104
 )
 
+var handlers map[int]mtp.Handler
+
 var mrkt *market.Market
 
 func init() {
@@ -30,16 +32,25 @@ func init() {
 	mrkt = market.New(productService)
 }
 
-func handler(mw *mtp.MessageWriter, msg *mtp.Message) {
-	log.Println("INFO: server received:", msg)
-
-	switch msg.Type {
-	case MessageProductAdd:
-		handleProductAdd(mw, msg)
-
-	case MessageProductListRequest:
-		handleProductListRequest(mw, msg)
+func handleProductListRequest(mw *mtp.MessageWriter, msg *mtp.Message) {
+	// doing logic
+	products, err := mrkt.Products()
+	if err != nil {
+		writeError(mw, err)
+		return
 	}
+
+	// preparing response
+	pld, err := json.Marshal(products)
+	if err != nil {
+		writeError(mw, err)
+		return
+	}
+	res := &mtp.Message{
+		Type:    MessageProduct,
+		Payload: string(pld),
+	}
+	mw.WriteMessage(res)
 }
 
 func handleProductAdd(mw *mtp.MessageWriter, msg *mtp.Message) {
@@ -68,27 +79,6 @@ func handleProductAdd(mw *mtp.MessageWriter, msg *mtp.Message) {
 	mw.WriteMessage(res)
 }
 
-func handleProductListRequest(mw *mtp.MessageWriter, msg *mtp.Message) {
-	// doing logic
-	products, err := mrkt.Products()
-	if err != nil {
-		writeError(mw, err)
-		return
-	}
-
-	// preparing response
-	pld, err := json.Marshal(products)
-	if err != nil {
-		writeError(mw, err)
-		return
-	}
-	res := &mtp.Message{
-		Type:    MessageProduct,
-		Payload: string(pld),
-	}
-	mw.WriteMessage(res)
-}
-
 func writeError(mw *mtp.MessageWriter, err error) {
 	log.Println("ERROR:", err)
 	res := &mtp.Message{
@@ -102,11 +92,10 @@ func main() {
 	srv := &mtp.Server{
 		Addr:        ":8080",
 		IdleTimeout: 30 * time.Second,
-		Handler:     mtp.HandlerFunc(handler),
 	}
 
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	mtp.HandleFunc(MessageProductListRequest, handleProductListRequest)
+	mtp.HandleFunc(MessageProductAdd, handleProductAdd)
 
 	go func() {
 		err := srv.ListenAndServe()
@@ -115,6 +104,9 @@ func main() {
 		}
 	}()
 	log.Println("Server started at 0.0.0.0:8080")
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	<-done
 	srv.Shutdown()

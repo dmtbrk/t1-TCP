@@ -37,7 +37,7 @@ func (srv *Server) ListenAndServe() error {
 }
 
 func (srv *Server) Serve() error {
-	for !srv.inShutdown { // http uses atomicBool
+	for !srv.InShutdown() {
 		conn, err := srv.listener.Accept()
 		if err != nil {
 			if srv.inShutdown {
@@ -78,13 +78,32 @@ func (srv *Server) Handle(conn net.Conn) {
 			continue
 		}
 
-		srv.Handler.ServeMMTP(mw, msg)
+		if srv.Handler != nil {
+			srv.Handler.ServeMMTP(mw, msg)
+		} else {
+			if handlers == nil {
+				return
+			}
+			if h, ok := handlers[msg.Type]; ok {
+				h.ServeMMTP(mw, msg)
+			}
+		}
 	}
+}
+
+func (srv *Server) InShutdown() bool {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	return srv.inShutdown
 }
 
 func (srv *Server) Shutdown() {
 	log.Println("INFO: shutting down...")
+
+	srv.mu.Lock()
 	srv.inShutdown = true // http uses atomicBool
+	srv.mu.Unlock()
+
 	srv.listener.Close()
 
 	ticker := time.NewTicker(500 * time.Millisecond)
@@ -157,6 +176,8 @@ func (mw *MessageWriter) WriteMessage(msg *Message) error {
 	return err
 }
 
+var handlers map[int]Handler
+
 type Handler interface {
 	ServeMMTP(mw *MessageWriter, msg *Message)
 }
@@ -165,6 +186,13 @@ type HandlerFunc func(mw *MessageWriter, msg *Message)
 
 func (f HandlerFunc) ServeMMTP(mw *MessageWriter, msg *Message) {
 	f(mw, msg)
+}
+
+func HandleFunc(t int, h func(mw *MessageWriter, msg *Message)) {
+	if handlers == nil {
+		handlers = make(map[int]Handler)
+	}
+	handlers[t] = HandlerFunc(h)
 }
 
 func ListenAndServe(addr string, handler Handler) error {
