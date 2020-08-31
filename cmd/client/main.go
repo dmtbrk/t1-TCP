@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/ortymid/t1-tcp/market"
 	"github.com/ortymid/t1-tcp/mtp"
@@ -21,76 +20,90 @@ const (
 )
 
 func main() {
-	c, err := mtp.Dial(":8080")
-	if err != nil {
-		panic(err)
-	}
+ConnectionLoop:
 	for {
-		fmt.Println("===========================================")
-		fmt.Println("Enter a number representing a message type:")
-		fmt.Println("101 - Request Product List")
-		fmt.Println("104 - Add Product")
+		c, err := mtp.Dial(":8080")
+		if err != nil {
+			panic(err)
+		}
+	MessageInputLoop:
+		for {
+			fmt.Println("===========================================")
+			fmt.Println("Enter a number representing a message type:")
+			fmt.Println("101 - Request Product List")
+			fmt.Println("104 - Add Product")
 
-		fmt.Print("Message type: ")
-		typ := readInt()
+			msg := &mtp.Message{}
+			for {
+				fmt.Print("Message type: ")
+				msg.Type, err = readInt()
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
 
-		msg := &mtp.Message{Type: typ}
+				switch msg.Type {
+				case MessageProductListRequest:
+					msg.Payload = ""
+				case MessageProductAdd:
+					fmt.Print("\nEnter product name: ")
+					name, err := readString()
+					if err != nil {
+						fmt.Println(err)
+						continue
+					}
 
-		switch msg.Type {
-		case MessageProductListRequest:
-			msg.Payload = ""
-		case MessageProductAdd:
-			fmt.Print("\nEnter product name: ")
-			name := readString()
-			fmt.Print("Enter product price: ")
-			price := readInt()
-			product := &market.Product{Name: name, Price: price}
-			pld, err := json.Marshal(product)
+					fmt.Print("Enter product price: ")
+					price, err := readInt()
+					if err != nil {
+						fmt.Println(err)
+						continue
+					}
+
+					product := &market.Product{Name: name, Price: price}
+					pld, err := json.Marshal(product)
+					if err != nil {
+						panic(err)
+					}
+					msg.Payload = string(pld)
+				default:
+					fmt.Println("Unknown message type. Try again.")
+					continue
+				}
+				break
+			}
+
+			err = c.SendMessage(msg)
 			if err != nil {
-				panic(err)
+				fmt.Println("ERROR sending message:", err)
+				continue MessageInputLoop
 			}
-			msg.Payload = string(pld)
-		default:
-			fmt.Println("Unknown message type. Exiting.")
-			os.Exit(0)
-		}
 
-		err = c.SendMessage(msg)
-		if err != nil {
-			fmt.Println("ERROR sending message:", err)
-			continue
-		}
-
-		res, err := c.ReceiveMessage()
-		if err != nil {
-			if err == io.EOF {
-				fmt.Println("Connection closed. Exiting.")
-				os.Exit(0)
+			res, err := c.ReceiveMessage()
+			if err != nil {
+				if err == io.EOF {
+					fmt.Println("Connection closed. Reconnecting.")
+					continue ConnectionLoop
+				}
+				fmt.Println("ERROR receiving message:", err)
+				continue MessageInputLoop
 			}
-			fmt.Println("ERROR receiving message:", err)
-			continue
+
+			fmt.Println("\nServer response:")
+			fmt.Println("Type:", res.Type)
+			fmt.Println("Payload:", res.Payload)
 		}
-		fmt.Println("\nServer response:")
-		fmt.Println(res)
 	}
 }
 
-func readInt() int {
+func readInt() (int, error) {
 	var i int
 	_, err := fmt.Scanf("%d", &i)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(0)
-	}
-	return i
+	return i, err
 }
 
-func readString() string {
+func readString() (string, error) {
 	var s string
 	_, err := fmt.Scanf("%s", &s)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(0)
-	}
-	return s
+	return s, err
 }
