@@ -6,4 +6,4 @@ This project implements a client-server model over a TCP connection by providing
 
 `go run ./cmd/server` will run a server ready to accept connections.
 
-`go run ./cmd/client` will run an interactive session with client.
+`go run ./cmd/client` will run an interactive client session.
