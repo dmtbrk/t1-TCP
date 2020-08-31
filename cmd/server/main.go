@@ -47,7 +47,7 @@ func handleProductListRequest(mw *mtp.MessageWriter, msg *mtp.Message) {
 		return
 	}
 	res := &mtp.Message{
-		Type:    MessageProduct,
+		Type:    MessageProductList,
 		Payload: string(pld),
 	}
 	mw.WriteMessage(res)
